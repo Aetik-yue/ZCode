@@ -127,10 +127,35 @@ export function reconcileLegacy(db: DatabaseSync, ownerHostId?: string): void {
   }
 }
 
+/**
+ * fork 任务的父会话项目归属。
+ * 原因：`uniqueRootProject` 只在「同 host 唯一 root」时归位（见 CONTRACT：主要目录没有优先级）。
+ * 当同一路径既是项目主根、又是另一项目的附加目录时它返回 NULL，CLI 侧 fork 出来的会话会因此
+ * 永久丢失项目归属，只能落在侧边栏的无项目分区。fork 是父会话的延续，应继承父任务已判定的归属。
+ */
+function forkParentProject(
+  db: DatabaseSync,
+  hostId: string,
+  parentTaskId: string | undefined,
+): string | null {
+  if (!parentTaskId) return null;
+  const row = db
+    .prepare(
+      "SELECT project_id FROM tasks WHERE host_id=? AND task_id=? AND project_id IS NOT NULL",
+    )
+    .get(hostId, parentTaskId) as { project_id: string } | undefined;
+  return row?.project_id ?? null;
+}
+
 /** 新版本插入身份和首次归属，不借旧列生成 CLI 事实。调用方与 INSERT 共用写事务。 */
 export function admitTaskIdentity(
   db: DatabaseSync,
-  task: { workspacePath: string; workspaceIdentity?: string; taskId: string },
+  task: {
+    workspacePath: string;
+    workspaceIdentity?: string;
+    taskId: string;
+    forkedFromTaskId?: string;
+  },
   ownerHostId?: string,
 ): void {
   const key = resolveWorkspaceKey(task);
@@ -139,7 +164,8 @@ export function admitTaskIdentity(
     "UPDATE tasks SET host_id=?,root_path=workspace_path,project_id=?,handoff_pending=handoff_pending | ? WHERE workspace_key=? AND task_id=? AND host_id IS NULL",
   ).run(
     hostId,
-    uniqueRootProject(db, hostId, task.workspacePath),
+    uniqueRootProject(db, hostId, task.workspacePath) ??
+      forkParentProject(db, hostId, task.forkedFromTaskId),
     OWNERSHIP_DECIDED,
     key,
     task.taskId,

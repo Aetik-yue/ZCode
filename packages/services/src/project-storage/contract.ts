@@ -19,7 +19,12 @@ export interface ProjectStorageContract {
   /** 加法升级后同事务交接旧版本新增行/删除/标题意图；每次启动调用，不重算已处理的 NULL。 */
   migrate(db: DatabaseSync, context: ProjectMigrationContext): Promise<MigrationResult>;
   repository(db: DatabaseSync, hostId?: string): ProjectRepositoryContract;
-  admitTaskIdentity(db: DatabaseSync, task: ProjectTaskRef, hostId?: string): void;
+  /** fork 任务在唯一 root 匹配失败时继承父任务的 project_id；非 fork 仍只按唯一 root 归位。 */
+  admitTaskIdentity(
+    db: DatabaseSync,
+    task: ProjectTaskRef & { forkedFromTaskId?: string },
+    hostId?: string,
+  ): void;
 }
 
 export interface ProjectRoot {

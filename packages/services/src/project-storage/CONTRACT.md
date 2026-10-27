@@ -7,7 +7,7 @@ Host 项目组织态的持久化升级。调用者持有 app SQLite 连接，CLI
 - ID 沿用 CLI 的四位递增序号 + snake_case 名称，两个库独立编号；开发期旧 ID 的本机更名不修改 SQL/checksum 或重新执行转换。
 - 初始 cli\_\* 从旧列复制一次，之后只由 syncer 写。handoff_pending 为意图与首次判定 bit；NULL project_id 是合法最终组织态。
 - 老版本新写行以 host_id IS NULL 识别，同一事务补身份、首次归位与 bit 8；用户在新版移出/新建的空归属不能再次自动分配。
-- 同 host 唯一 root 匹配才归位，主要目录没有优先级。Group 保留独立组织态，不转换为项目。
+- 同 host 唯一 root 匹配才归位，主要目录没有优先级；唯一匹配失败且该行是 fork（forked_from_task_id 指向的父任务已有 project_id）时继承父任务归属，非 fork 仍保持 NULL。Group 保留独立组织态，不转换为项目。
 - settings 的 remote 条目只首次导入本机入口缓存，不能变成本机权威 project；普通启动不再导入。
 - 迁移依赖 sqlite-migrations 公共端口；内部文件不被 UI/其他服务直接导入。目录/备份位置与 logger 均由启动入口注入。
 
